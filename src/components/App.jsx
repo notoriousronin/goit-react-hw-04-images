@@ -1,85 +1,74 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Searchbar } from './Searchbar/Searchbar';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Loader } from './Loader/Loader';
 import { Button } from './Button/Button';
 import { ModalWindow } from './Modal/Modal';
 
-export default class App extends Component {
-  state = {
-    images: [],
-    request: '',
-    page: 1,
-    isLoading: false,
-    largeImage: null,
-  };
-  perPage = 12;
+export default function App() {
+  const [images, setImages] = useState([]);
+  const [request, setRequest] = useState('');
+  const [page, setPage] = useState(1);
+  const [isLoading, setLoading] = useState(false);
+  const [largeImage, setLargeImage] = useState(null);
 
-  async componentDidUpdate(_, prevState) {
+  const perPage = 12;
+
+  useEffect(() => {
     const KEY = '30111750-62c4a73e1cd4f265a4d4cd285';
-    const { page, request } = this.state;
-    const prevRequest = prevState.request;
-    const newRequest = this.state.request;
-    const prevPage = prevState.page;
-    const newPage = this.state.page;
 
-    if (prevRequest !== newRequest || prevPage !== newPage) {
-      try {
-        this.setState({ isLoading: true });
-        const { hits } = await fetch(
-          `https://pixabay.com/api/?q=${request}&page=${page}&key=${KEY}&image_type=photo&orientation=horizontal&per_page=${this.perPage}`
-        ).then(response => response.json());
-        this.setState(prevState => ({
-          images: [...prevState.images, ...hits],
-        }));
-      } catch (error) {
-        console.log(error);
-      } finally {
-        this.setState({ isLoading: false });
+    if (request) {
+      async function getData() {
+        try {
+          setLoading(true);
+          const { hits } = await fetch(
+            `https://pixabay.com/api/?q=${request}&page=${page}&key=${KEY}&image_type=photo&orientation=horizontal&per_page=${perPage}`
+          ).then(response => response.json());
+          setImages(s => [...s, ...hits]);
+        } catch (error) {
+          console.log(error);
+        } finally {
+          setLoading(false);
+        }
       }
-      return;
+      getData();
     }
-  }
+  }, [request, page, perPage]);
 
-  onRequest = e => {
+  const onRequest = e => {
     e.preventDefault();
     const input = e.target.elements[1].value;
     e.target.reset();
-    this.setState({ request: input, images: [], page: 1 });
+    setRequest(input);
+    setImages([]);
+    setPage(1);
   };
 
-  onImageClick = (url, tags) => {
-    this.setState({ largeImage: { url, tags } });
+  const onImageClick = (url, tags) => {
+    setLargeImage({ url, tags });
   };
 
-  onLoadMore = () => {
-    this.setState(prevState => ({ page: prevState.page + 1 }));
+  const onLoadMore = () => {
+    setPage(s => s + 1);
   };
 
-  onHandleClose = () => {
-    this.setState({ largeImage: null });
+  const onHandleClose = () => {
+    setLargeImage(null);
   };
 
-  render() {
-    return (
-      <div>
-        <Searchbar onSubmit={this.onRequest} />
-        <ImageGallery
-          images={this.state.images}
-          onImageClick={this.onImageClick}
+  return (
+    <div>
+      <Searchbar onSubmit={onRequest} />
+      <ImageGallery images={images} onImageClick={onImageClick} />
+      {isLoading && <Loader />}
+      {images.length === page * perPage && <Button onLoadMore={onLoadMore} />}
+      {largeImage && (
+        <ModalWindow
+          onHandleClose={onHandleClose}
+          url={largeImage.url}
+          tags={largeImage.tags}
         />
-        {this.state.isLoading && <Loader />}
-        {this.state.images.length === this.state.page * this.perPage && (
-          <Button onLoadMore={this.onLoadMore} />
-        )}
-        {this.state.largeImage && (
-          <ModalWindow
-            onHandleClose={this.onHandleClose}
-            url={this.state.largeImage.url}
-            tags={this.state.largeImage.tags}
-          />
-        )}
-      </div>
-    );
-  }
+      )}
+    </div>
+  );
 }
